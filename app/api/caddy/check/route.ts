@@ -9,17 +9,25 @@ export async function GET(request: NextRequest) {
     return new NextResponse("Domain parameter missing", { status: 400 });
   }
 
-  // 假设你的主域名是 qnap.aishuohua.art
-  // 我们需要提取前缀。例如: "fastapi.qnap.aishuohua.art" -> "fastapi"
-  const baseDomain = "qnap.aishuohua.art";
+  // 支持多个合法后缀，通过环境变量 ALLOWED_BASE_DOMAINS 配置（逗号分隔）
+  // 例如: ALLOWED_BASE_DOMAINS=qnap.aishuohua.art,frps.rwecho.top
+  const allowedBases = (
+    process.env.ALLOWED_BASE_DOMAINS || "qnap.aishuohua.art"
+  )
+    .split(",")
+    .map((b) => b.trim())
+    .filter(Boolean);
 
-  if (!domain.endsWith(baseDomain)) {
-    // 如果不是你的主域名，直接拒绝 (防止别人把你的服务器当公共 DNS 用)
+  // 检查当前请求的域名属于哪一个后缀
+  const baseDomain = allowedBases.find((base) => domain.endsWith(`.${base}`));
+
+  if (!baseDomain) {
+    // 没有匹配的后缀，拒绝
     return new NextResponse("Domain mismatch", { status: 403 });
   }
 
   // 提取前缀
-  // slice(0, -length - 1) 移除后缀和前面的点
+  // 例如: "wechat.frps.rwecho.top" -> 移除 ".frps.rwecho.top" 得到 "wechat"
   const prefix = domain.slice(0, -(baseDomain.length + 1));
 
   // 获取白名单
